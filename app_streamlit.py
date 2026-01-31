@@ -7,7 +7,7 @@ from datetime import datetime
 # --- 1. 页面配置 ---
 st.set_page_config(layout="wide", page_title="Stock Analyzer Pro")
 
-# --- 2. 注入 CSS (黑金风格复刻) ---
+# --- 2. 注入 CSS (保持黑金风格) ---
 st.markdown("""
 <style>
     /* 全局背景 */
@@ -16,32 +16,31 @@ st.markdown("""
     /* 侧边栏 */
     [data-testid="stSidebar"] { background-color: #181b21; border-right: 1px solid #333; }
     
-    /* 字体与通用颜色 */
-    h1, h2, h3, p, span, div { color: #e1e1e1; font-family: 'Segoe UI', Roboto, sans-serif; }
+    /* 字体颜色 */
+    h1, h2, h3, p, span, div, label { color: #e1e1e1; font-family: 'Segoe UI', Roboto, sans-serif; }
     
     /* 输入框 */
     .stTextInput > div > div > input, .stNumberInput > div > div > input {
         color: #fff; background-color: #2b2b2b; border: 1px solid #444;
     }
     
-    /* ============== 期权表格容器样式 ============== */
+    /* ============== 核心：右侧期权表格样式 ============== */
     .opt-container {
         background-color: #181b21;
         border-radius: 12px;
-        padding: 0; /* 内部无 padding，靠 row撑开 */
         border: 1px solid #333;
-        border-left: 3px solid #3498db; /* 蓝色左边框 */
+        border-left: 3px solid #3498db;
         font-family: 'Segoe UI', sans-serif;
         overflow: hidden;
     }
     
-    /* 标题区域 */
+    /* 标题区 */
     .opt-header-box {
-        padding: 15px 15px 5px 15px;
+        padding: 15px;
         border-bottom: 1px solid #333;
     }
     .opt-title { font-size: 18px; font-weight: bold; color: #fff; margin: 0; }
-    .opt-sub { font-size: 12px; color: #888; margin-top: 4px; margin-bottom: 10px; }
+    .opt-sub { font-size: 12px; color: #888; margin-top: 5px; }
     
     /* 表头 */
     .opt-table-header {
@@ -57,45 +56,40 @@ st.markdown("""
     .opt-row {
         display: flex;
         align-items: center;
-        padding: 10px 10px;
+        padding: 12px 10px;
         border-bottom: 1px solid #2b2b2b;
         transition: background 0.1s;
     }
     .opt-row:last-child { border-bottom: none; }
     .opt-row:hover { background-color: #262a33; }
     
-    /* 列宽定义 (Flex布局) */
+    /* 列宽布局 */
     .col-period { width: 15%; }
     .col-price  { width: 25%; }
     .col-dist   { width: 20%; text-align: right; }
     .col-ratio  { width: 25%; text-align: right; }
-    .col-iv     { width: 15%; text-align: right; color: #888; font-size: 12px;}
+    .col-iv     { width: 15%; text-align: right; color: #666; font-size: 11px;}
     
-    /* 文本排版 */
+    /* 文本样式 */
     .text-main { font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 2px; }
     .text-sub  { font-size: 11px; color: #666; }
-    .text-gray { color: #666; }
     
-    /* 距现价颜色 */
-    .dist-green { color: #666; } /* 负数显示灰色 */
-    .dist-active { color: #00b894; font-weight: bold; } /* 正数显示绿色 */
+    /* 颜色类 */
+    .dist-active { color: #00b894; font-weight: bold; }
+    .dist-gray   { color: #666; }
     
-    /* 成本比胶囊样式 (完全复刻截图) */
     .tag-ratio {
-        display: inline-block; 
-        padding: 3px 8px; 
-        border-radius: 4px; 
-        font-size: 12px; 
-        font-weight: bold;
+        display: inline-block; padding: 3px 8px; border-radius: 4px; 
+        font-size: 12px; font-weight: bold;
     }
-    .tag-red    { background: rgba(231, 76, 60, 0.2); color: #e74c3c; } /* >15% */
-    .tag-green  { background: rgba(0, 184, 148, 0.2); color: #00b894; } /* <5% */
-    .tag-yellow { background: rgba(241, 196, 15, 0.2); color: #f1c40f; } /* 中间 */
+    .tag-red    { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+    .tag-green  { background: rgba(0, 184, 148, 0.2); color: #00b894; }
+    .tag-yellow { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
 
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 数据获取逻辑 ---
+# --- 3. 数据处理函数 ---
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker):
     try:
@@ -128,11 +122,22 @@ def get_option_chain_data(stock, current_price, target_strike):
         expirations = stock.options
         if not expirations: return []
         
-        # 增加更多周期以匹配你的截图
+        # --- 更新：增加了您指定的所有月份 ---
         periods = [
-            {"label": "1周", "days": 7}, {"label": "2周", "days": 14},
-            {"label": "1月", "days": 30}, {"label": "3月", "days": 90},
-            {"label": "6月", "days": 180}, {"label": "1年", "days": 365}
+            {"label": "1周", "days": 7},
+            {"label": "2周", "days": 14},
+            {"label": "1月", "days": 30},
+            {"label": "2月", "days": 60},  # New
+            {"label": "3月", "days": 90},
+            {"label": "4月", "days": 120}, # New
+            {"label": "5月", "days": 150}, # New
+            {"label": "6月", "days": 180},
+            {"label": "7月", "days": 210}, # New
+            {"label": "8月", "days": 240}, # New
+            {"label": "9月", "days": 270}, # New
+            {"label": "10月", "days": 300},# New
+            {"label": "11月", "days": 330},# New
+            {"label": "1年", "days": 365}
         ]
         
         results = []
@@ -147,7 +152,12 @@ def get_option_chain_data(stock, current_price, target_strike):
 
         for p in periods:
             target_days = p["days"]
+            # 寻找时间差最小的日期
             closest = min(exp_dates, key=lambda x: abs(x["diff"] - target_days))
+            
+            # 简单的去重逻辑：如果这个到期日已经被上一个周期选过了，且时间差比较大，可以考虑跳过
+            # 但为了展示完整性，这里允许重复（例如4月和5月可能都匹配到同一个远期合约）
+            
             try:
                 opt = stock.option_chain(closest["date_str"])
                 calls = opt.calls
@@ -164,15 +174,16 @@ def get_option_chain_data(stock, current_price, target_strike):
                     "iv": row['impliedVolatility'] * 100
                 })
             except: pass
+        
+        # 可选：如果需要对结果按天数排序或去重，可以在这里处理
         return results
     except: return []
 
-# --- 4. 生成 HTML 表格 (核心修复：去除缩进) ---
+# --- 4. HTML 生成器 ---
 def generate_html_table(data_list, target_price):
     if not data_list:
-        return "<div class='opt-container' style='color:#666; text-align:center; padding:30px;'>暂无期权数据</div>"
+        return "<div style='padding:20px; text-align:center; color:#666;'>暂无数据</div>"
 
-    # 构建行数据
     rows_html = ""
     for item in data_list:
         # 颜色逻辑
@@ -180,52 +191,50 @@ def generate_html_table(data_list, target_price):
         if item['ratio'] < 5: ratio_cls = "tag-green"
         if item['ratio'] > 15: ratio_cls = "tag-red"
         
-        dist_cls = "dist-active" if item['diff_pct'] > 0 else "dist-green"
+        dist_cls = "dist-active" if item['diff_pct'] > 0 else "dist-gray"
         
-        # 为了避免 Streamlit 把代码缩进当成 Markdown 代码块，这里一定要顶格写，或者不要有换行缩进
         rows_html += f"""
 <div class="opt-row">
-    <div class="col-period">
-        <div class="text-main">{item['period']}</div>
-        <div class="text-sub">{item['date']}</div>
-    </div>
-    <div class="col-price">
-        <div class="text-main">${item['price']:.2f}</div>
-        <div class="text-sub">Strike: {item['strike']}</div>
-    </div>
-    <div class="col-dist {dist_cls}" style="font-weight:bold; font-size:14px;">
-        {item['diff_pct']:.2f}%
-    </div>
-    <div class="col-ratio">
-        <span class="tag-ratio {ratio_cls}">{item['ratio']:.2f}%</span>
-    </div>
-    <div class="col-iv">
-        {item['iv']:.1f}%
-    </div>
+<div class="col-period">
+<div class="text-main">{item['period']}</div>
+<div class="text-sub">{item['date']}</div>
+</div>
+<div class="col-price">
+<div class="text-main">${item['price']:.2f}</div>
+<div class="text-sub">Strike: {item['strike']}</div>
+</div>
+<div class="col-dist {dist_cls}" style="font-weight:bold; font-size:13px;">
+{item['diff_pct']:+.2f}%
+</div>
+<div class="col-ratio">
+<span class="tag-ratio {ratio_cls}">{item['ratio']:.2f}%</span>
+</div>
+<div class="col-iv">
+{item['iv']:.1f}%
+</div>
 </div>"""
 
-    # 拼接完整 HTML (注意：外层也尽量减少缩进)
     full_html = f"""
 <div class="opt-container">
-    <div class="opt-header-box">
-        <h3 class="opt-title">Call 期权链分析</h3>
-        <div class="opt-sub">目标行权价: ${target_price}</div>
-    </div>
-    <div class="opt-table-header">
-        <div class="col-period">周期</div>
-        <div class="col-price">Call价格</div>
-        <div class="col-dist">距现价</div>
-        <div class="col-ratio">成本比</div>
-        <div class="col-iv">IV</div>
-    </div>
-    <div class="opt-body">
-        {rows_html}
-    </div>
+<div class="opt-header-box">
+<h3 class="opt-title">Call 期权链分析</h3>
+<div class="opt-sub">目标行权价: ${target_price}</div>
 </div>
-    """
+<div class="opt-table-header">
+<div class="col-period">周期</div>
+<div class="col-price">Call价格</div>
+<div class="col-dist">距现价</div>
+<div class="col-ratio">成本比</div>
+<div class="col-iv">IV</div>
+</div>
+<div class="opt-body">
+{rows_html}
+</div>
+</div>
+"""
     return full_html
 
-# --- 5. 主运行逻辑 ---
+# --- 5. 主逻辑 ---
 with st.sidebar:
     st.markdown("### 🛠 参数设置")
     ticker = st.text_input("股票代码", value="TSLA").upper()
@@ -238,11 +247,9 @@ if run_btn or ticker:
         stock_obj = yf.Ticker(ticker)
         
     if chip_data:
-        # 布局调整：左侧图表 3 : 右侧表格 1.2
         col_chart, col_table = st.columns([3, 1.2])
         
         with col_chart:
-            # 预计算颜色
             bar_data = []
             cp = chip_data['current_price']
             for p_str, vol in zip(chip_data['chip_prices'], chip_data['chip_volumes']):
@@ -291,7 +298,7 @@ if run_btn or ticker:
             opt_data = get_option_chain_data(stock_obj, chip_data['current_price'], target_price)
             # 生成 HTML
             html_code = generate_html_table(opt_data, target_price)
-            # 渲染 (unsafe_allow_html=True)
+            # 渲染
             st.markdown(html_code, unsafe_allow_html=True)
 
     else:
